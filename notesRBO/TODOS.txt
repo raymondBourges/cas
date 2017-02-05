@@ -1,0 +1,38 @@
+Pour le ticket
+
+eyJhbGciOiJSUzI1NiIsImtpZCI6ImNhcyJ9.eyJqdGkiOiIyZDZjMjk0Yi02MzhmLTRjNjctOGI2ZS02YzBkZTllM2RkMDgiLCJpc3MiOiJodHRwOi8vY2FzLmNvY2t0YWlsLmZyOjg0NDMvY2FzL29pZGMiLCJhdWQiOiJzZXJ2aW1wbGljaXQiLCJleHAiOjE0ODYyOTk0ODEsImlhdCI6MTQ4NjI5MjI4MSwibmJmIjoxNDg2MjkxOTgxLCJzdWIiOiJjYXN1c2VyIiwiYW1yIjpbIkFjY2VwdFVzZXJzQXV0aGVudGljYXRpb25IYW5kbGVyIl0sInN0YXRlIjoiYWYwaWZqc2xka2oiLCJub25jZSI6Im4tMFM2X1d6QTJNaiIsInByZWZlcnJlZF91c2VybmFtZSI6ImNhc3VzZXIifQ.MqMdLNIyIaHnX4WaK3ly9ynY3U4o1WT-3-3UB6vlLDA7RcMpDXX6cI5UxWQxGby9bM9sqAurjpq7uiUYifqAw0ASuDYFDJEp1C4r4Uo5QXxDmPvAX4LuDS1zC820p8KEdYdJ-IvXV0xtmpeES7gIKTkKNXaX009TjVvigINTNGAYnrUwkxs-6PNGilBU7Ve0ky5wu7a8O-mcXx3_iiKJlAWdsJO8sw6k3nVDDcuCDCEJwp7sdnDbZKr2NMgRndGj_G1mY_x4umpB8_Lhc88U8f60uJaTueLG1IYApsEPuEA0a-isSXwj2uP0xSbz5QdNHzi42CnJZQ-KDr8nvaNGOQ
+
+obtenu via
+
+https://cas.cocktail.fr:8443/cas/oidc/authorize?response_type=id_token%20token&client_id=servimplicit&redirect_uri=https://localhost:8443/test&scope=openid%20profile&state=af0ifjsldkj&nonce=n-0S6_WzA2Mj
+
+1) verif spec (FAIT)
+-- HEADER
+{
+  "alg": "RS256",
+  "kid": "cas"
+}
+-- PAYLOAD
+{
+  "jti": "2d6c294b-638f-4c67-8b6e-6c0de9e3dd08",
+  "iss": "http://cas.cocktail.fr:8443/cas/oidc", <-- REQUIRED --> https !!!!
+  "aud": "servimplicit", <-- REQUIRED
+  "exp": 1486299481, <-- REQUIRED
+  "iat": 1486292281, <-- REQUIRED
+  "nbf": 1486291981,
+  "sub": "casuser", <-- REQUIRED
+  "amr": [
+    "AcceptUsersAuthenticationHandler"
+  ],
+  "state": "af0ifjsldkj",
+  "nonce": "n-0S6_WzA2Mj", <-- REQUIRED
+  "preferred_username": "casuser"
+  // at_hash ????
+}
+
+2) verif signature
+
+3) regarder comment avoir la ref à la clé publique (présente sur https://cas.cocktail.fr:8443/cas/oidc/jwks) (FAIT)
+- dans les MD du ticket --> OK via kid
+
+4) tester avec un vrai client JS et un vrai service
