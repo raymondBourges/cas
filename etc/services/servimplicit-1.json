@@ -3,6 +3,7 @@
   "clientId": "servimplicit",
   "serviceId" : "^https://localhost:8443/test",
   "signIdToken": true,
+  "implicit": true,
   "name": "servimplicit",
   "id": 1,
   "evaluationOrder": 100

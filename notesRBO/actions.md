@@ -7,7 +7,7 @@
 
 ## test implicit flow
 
-* https://cas.cocktail.fr:8443/cas/oidc/authorize?response_type=id_token%20token&client_id=test&redirect_uri=https://localhost:8443/test&scope=openid%20profile&state=af0ifjsldkj&nonce=n-0S6_WzA2Mj
+* https://cas.cocktail.fr:8443/cas/oidc/authorize?response_type=id_token%20token&client_id=servimplicit&redirect_uri=https://localhost:8443/test&scope=openid%20profile&state=af0ifjsldkj&nonce=n-0S6_WzA2Mj
 
 * --> Unsupported response type: id_token token --> :-(
 
