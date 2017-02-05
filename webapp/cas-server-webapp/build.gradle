@@ -17,7 +17,7 @@ javadoc {
 
 war {
     def currentTime = java.time.ZonedDateTime.now()
-    
+
     manifest {
         attributes("Implementation-Title": project.name,
                 "Implementation-Vendor": project.group,
@@ -95,4 +95,8 @@ dependencies {
     compile libraries.metrics
     compile libraries.hibernate
     compile libraries.bouncycastle
+
+    //RBO
+    compile project(":support:cas-server-support-oidc")
+    compile project(":support:cas-server-support-json-service-registry")
 }

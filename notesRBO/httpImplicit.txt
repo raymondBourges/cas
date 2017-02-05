@@ -1,0 +1,15 @@
+GET https://cas.cocktail.fr:8443/cas/oidc/authorize?response_type=id_token%20token&client_id=test&redirect_uri=https://cas.cocktail.fr:8443/cas/status/dashboard&scope=openid%20profile&state=af0ifjsldkj&nonce=n-0S6_WzA2Mj
+--> Location=https://cas.cocktail.fr:8443/cas/login?service=https%3A%2F%2Fcas.cocktail.fr%3A8443%2Fcas%2Foauth2.0%2FcallbackAuthorize%3Fclient_name%3DCasOAuthClient%26client_id%3Dtest%26redirect_uri%3Dhttps%3A%2F%2Fcas.cocktail.fr%3A8443%2Fcas%2Fstatus%2Fdashboard (LOGIN)
+
+
+POST Location=https://cas.cocktail.fr:8443/cas/login?service=https%3A%2F%2Fcas.cocktail.fr%3A8443%2Fcas%2Foauth2.0%2FcallbackAuthorize%3Fclient_name%3DCasOAuthClient%26client_id%3Dtest%26redirect_uri%3Dhttps%3A%2F%2Fcas.cocktail.fr%3A8443%2Fcas%2Fstatus%2Fdashboard
+--> Location=https://cas.cocktail.fr:8443/cas/oauth2.0/callbackAuthorize?client_name=CasOAuthClient&client_id=test&redirect_uri=https://cas.cocktail.fr:8443/cas/status/dashboard&ticket=ST-1-dzgMSbfOYqAIpBiQ6Ufu-bourges-W54-55SU1-SUW (OAUTH)
+
+
+GET https://cas.cocktail.fr:8443/cas/oauth2.0/callbackAuthorize?client_name=CasOAuthClient&client_id=test&redirect_uri=https://cas.cocktail.fr:8443/cas/status/dashboard&ticket=ST-1-dzgMSbfOYqAIpBiQ6Ufu-bourges-W54-55SU1-SUW
+--> Location=https://cas.cocktail.fr:8443/cas/oidc/authorize?response_type=id_token%20token&client_id=test&redirect_uri=https://cas.cocktail.fr:8443/cas/status/dashboard&scope=openid%20profile&state=af0ifjsldkj&nonce=n-0S6_WzA2Mj (OIDC)
+
+
+GET https://cas.cocktail.fr:8443/cas/oidc/authorize?response_type=id_token%20token&client_id=test&redirect_uri=https://cas.cocktail.fr:8443/cas/status/dashboard&scope=openid%20profile&state=af0ifjsldkj&nonce=n-0S6_WzA2Mj
+
+

@@ -1,0 +1,9 @@
+{
+  "@class" : "org.apereo.cas.services.OidcRegisteredService",
+  "clientId": "servimplicit",
+  "serviceId" : "^https://localhost:8443/test",
+  "signIdToken": true,
+  "name": "servimplicit",
+  "id": 1,
+  "evaluationOrder": 100
+}
