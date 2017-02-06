@@ -4,7 +4,7 @@ import com.google.common.base.Throwables;
 import org.apache.http.NameValuePair;
 import org.apache.http.message.BasicNameValuePair;
 import org.apereo.cas.OidcConstants;
-import org.apereo.cas.OidcIdTokenGenerator;
+import org.apereo.cas.OidcIdTokenGeneratorService;
 import org.apereo.cas.authentication.Authentication;
 import org.apereo.cas.authentication.principal.PrincipalFactory;
 import org.apereo.cas.authentication.principal.Service;
@@ -48,7 +48,7 @@ public class OidcAuthorizeEndpointController extends OAuth20AuthorizeController 
     @Autowired
     private CasConfigurationProperties casProperties;
 
-    private final OidcIdTokenGenerator idTokenGenerator;
+    private final OidcIdTokenGeneratorService idTokenGenerator;
 
     public OidcAuthorizeEndpointController(final ServicesManager servicesManager,
                                            final TicketRegistry ticketRegistry,
@@ -58,7 +58,7 @@ public class OidcAuthorizeEndpointController extends OAuth20AuthorizeController 
                                            final ServiceFactory<WebApplicationService> webApplicationServiceServiceFactory,
                                            final OAuthCodeFactory oAuthCodeFactory,
                                            final ConsentApprovalViewResolver consentApprovalViewResolver,
-                                           final OidcIdTokenGenerator idTokenGenerator) {
+                                           final OidcIdTokenGeneratorService idTokenGenerator) {
         super(servicesManager, ticketRegistry, validator, accessTokenFactory, principalFactory,
                 webApplicationServiceServiceFactory, oAuthCodeFactory, consentApprovalViewResolver);
         this.idTokenGenerator = idTokenGenerator;
@@ -82,14 +82,15 @@ public class OidcAuthorizeEndpointController extends OAuth20AuthorizeController 
 
         LOGGER.debug("Handling callback for response type [{}]", responseType);
         return buildCallbackUrlForImplicitHybridTokenResponseType(context, authentication,
-                service, redirectUri, clienttId);
+                service, redirectUri, clienttId, OAuthResponseTypes.IDTOKEN_TOKEN);
     }
 
     private String buildCallbackUrlForImplicitHybridTokenResponseType(final J2EContext context,
                                                                       final Authentication authentication,
                                                                       final Service service,
                                                                       final String redirectUri,
-                                                                      final String clientId) {
+                                                                      final String clientId,
+                                                                      final OAuthResponseTypes responseType) {
         try {
             final AccessToken accessToken = generateAccessToken(service, authentication, context);
             LOGGER.debug("Generated OAuth access token: [{}]", accessToken);
@@ -99,7 +100,7 @@ public class OidcAuthorizeEndpointController extends OAuth20AuthorizeController 
             final long timeout = casProperties.getTicket().getTgt().getTimeToKillInSeconds();
             final String idToken = this.idTokenGenerator.generate(context.getRequest(),
                     context.getResponse(),
-                    accessToken, timeout, oidcService);
+                    accessToken, timeout, responseType, oidcService);
             LOGGER.debug("Generated id token [{}]", idToken);
 
             final List<NameValuePair> params = new ArrayList<>();
