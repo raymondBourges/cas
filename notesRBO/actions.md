@@ -12,7 +12,7 @@
 * --> Unsupported response type: id_token token --> :-(
 
 ## Conf services
-* Copie des fichiers de config : "cp etc/cas/* /etc/cas/."
+* Copie des fichiers de config : "cp -r etc/cas/* /etc/cas/."
 
 ## Conf https
 
