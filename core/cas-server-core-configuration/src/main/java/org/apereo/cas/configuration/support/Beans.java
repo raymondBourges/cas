@@ -104,6 +104,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 /**
  * A re-usable collection of utility methods for object instantiations and configurations used cross various
@@ -409,10 +410,14 @@ public final class Beans {
         if (StringUtils.isBlank(l.getLdapUrl())) {
             throw new IllegalArgumentException("LDAP url cannot be empty/blank");
         }
-        
+
         LOGGER.debug("Creating LDAP connection configuration for [{}]", l.getLdapUrl());
         final ConnectionConfig cc = new ConnectionConfig();
-        cc.setLdapUrl(l.getLdapUrl());
+
+        final String urls = Arrays.stream(l.getLdapUrl().split(",")).collect(Collectors.joining(" "));
+        LOGGER.debug("Transformed LDAP urls from [{}] to [{}]", l.getLdapUrl(), urls);
+        cc.setLdapUrl(urls);
+
         cc.setUseSSL(l.isUseSsl());
         cc.setUseStartTLS(l.isUseStartTls());
         cc.setConnectTimeout(newDuration(l.getConnectTimeout()));
@@ -724,10 +729,40 @@ public final class Beans {
      * @return the search executor
      */
     public static SearchExecutor newLdaptiveSearchExecutor(final String baseDn, final String filterQuery, final List<String> params) {
+        return newLdaptiveSearchExecutor(baseDn, filterQuery, params, ReturnAttributes.ALL.value());
+    }
+
+    /**
+     * New ldaptive search executor search executor.
+     *
+     * @param baseDn           the base dn
+     * @param filterQuery      the filter query
+     * @param params           the params
+     * @param returnAttributes the return attributes
+     * @return the search executor
+     */
+    public static SearchExecutor newLdaptiveSearchExecutor(final String baseDn, final String filterQuery,
+                                                           final List<String> params,
+                                                           final List<String> returnAttributes) {
+        return newLdaptiveSearchExecutor(baseDn, filterQuery, params, returnAttributes.toArray(new String[]{}));
+    }
+
+    /**
+     * New ldaptive search executor search executor.
+     *
+     * @param baseDn           the base dn
+     * @param filterQuery      the filter query
+     * @param params           the params
+     * @param returnAttributes the return attributes
+     * @return the search executor
+     */
+    public static SearchExecutor newLdaptiveSearchExecutor(final String baseDn, final String filterQuery,
+                                                           final List<String> params,
+                                                           final String[] returnAttributes) {
         final SearchExecutor executor = new SearchExecutor();
         executor.setBaseDn(baseDn);
         executor.setSearchFilter(newLdaptiveSearchFilter(filterQuery, params));
-        executor.setReturnAttributes(ReturnAttributes.ALL.value());
+        executor.setReturnAttributes(returnAttributes);
         executor.setSearchScope(SearchScope.SUBTREE);
         return executor;
     }
@@ -829,9 +864,6 @@ public final class Beans {
     }
 
     private static Authenticator getSaslAuthenticator(final AbstractLdapAuthenticationProperties l) {
-        if (StringUtils.isBlank(l.getBaseDn())) {
-            throw new IllegalArgumentException("Base dn cannot be empty/blank for authenticated/anonymous authentication");
-        }
         if (StringUtils.isBlank(l.getUserFilter())) {
             throw new IllegalArgumentException("User filter cannot be empty/blank for authenticated/anonymous authentication");
         }

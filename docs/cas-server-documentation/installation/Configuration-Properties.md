@@ -1008,7 +1008,7 @@ Authenticates a user by comparing the user password (which can be encoded with a
 against the password on record determined by a configurable database query.
 
 ```properties
-# cas.authn.jdbc.query[0].sql=SELECT password FROM table WHERE name=?
+# cas.authn.jdbc.query[0].sql=SELECT * FROM table WHERE name=?
 # cas.authn.jdbc.query[0].healthQuery=
 # cas.authn.jdbc.query[0].isolateInternalQueries=false
 # cas.authn.jdbc.query[0].url=jdbc:hsqldb:mem:cas-hsql-database
@@ -1028,6 +1028,10 @@ against the password on record determined by a configurable database query.
 # cas.authn.jdbc.query[0].credentialCriteria=
 # cas.authn.jdbc.query[0].name=
 # cas.authn.jdbc.query[0].order=0
+# cas.authn.jdbc.query[0].fieldPassword=password
+# cas.authn.jdbc.query[0].fieldExpired=
+# cas.authn.jdbc.query[0].fieldDisabled=
+
 
 # cas.authn.jdbc.query[0].passwordEncoder.type=NONE|DEFAULT|STANDARD|BCRYPT|com.example.CustomPasswordEncoder
 # cas.authn.jdbc.query[0].passwordEncoder.characterEncoding=
@@ -1133,6 +1137,8 @@ is converted to hex before comparing it to the database value.
 # cas.authn.jdbc.encode[0].sql=
 # cas.authn.jdbc.encode[0].algorithmName=
 # cas.authn.jdbc.encode[0].passwordFieldName=password
+# cas.authn.jdbc.encode[0].expiredFieldName=
+# cas.authn.jdbc.encode[0].disabledFieldName=
 # cas.authn.jdbc.encode[0].healthQuery=
 # cas.authn.jdbc.encode[0].isolateInternalQueries=false
 # cas.authn.jdbc.encode[0].url=jdbc:hsqldb:mem:cas-hsql-database
@@ -1843,6 +1849,12 @@ To learn more about this topic, [please review this guide](GoogleAuthenticator-A
 # cas.authn.mfa.gauth.json.config.location=file:/somewhere.json
 ```
 
+#### Google Authenticator Rest
+
+```properties
+# cas.authn.mfa.gauth.rest.endpointUrl=https://somewhere.gauth.com
+```
+
 #### Google Authenticator MongoDb
 
 ```properties
@@ -2222,6 +2234,7 @@ Allow CAS to become an OpenID Connect provider (OP). To learn more about this to
 # cas.authn.oidc.issuer=http://localhost:8080/cas/oidc
 # cas.authn.oidc.skew=5
 # cas.authn.oidc.jwksFile=file:/keystore.jwks
+# cas.authn.oidc.jwksCacheInMinutes=60
 # cas.authn.oidc.dynamicClientRegistrationMode=OPEN|PROTECTED
 # cas.authn.oidc.subjectTypes=public,pairwise
 # cas.authn.oidc.scopes=openid,profile,email,address,phone,offline_access
@@ -2396,6 +2409,7 @@ To learn more about this topic, [please review this guide](OAuth-OpenId-Authenti
 # cas.authn.oauth.code.timeToKillInSeconds=30
 # cas.authn.oauth.code.numberOfUses=1
 
+# cas.authn.oauth.accessToken.releaseProtocolAttributes=true
 # cas.authn.oauth.accessToken.timeToKillInSeconds=7200
 # cas.authn.oauth.accessToken.maxTimeToLiveInSeconds=28800
 ```
@@ -3277,6 +3291,7 @@ To learn more about this topic, [please review this guide](Installing-ServicesMg
 # cas.mgmt.ldap.ldapAuthz.groupAttribute=
 # cas.mgmt.ldap.ldapAuthz.groupPrefix=
 # cas.mgmt.ldap.ldapAuthz.groupFilter=
+# cas.mgmt.ldap.ldapAuthz.groupBaseDn=
 # cas.mgmt.ldap.ldapAuthz.rolePrefix=ROLE_
 # cas.mgmt.ldap.ldapAuthz.roleAttribute=uugid
 # cas.mgmt.ldap.ldapAuthz.searchFilter=cn={user}

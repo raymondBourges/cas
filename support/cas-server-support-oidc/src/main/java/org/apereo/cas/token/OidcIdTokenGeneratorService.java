@@ -1,6 +1,7 @@
-package org.apereo.cas;
+package org.apereo.cas.token;
 
 import org.apache.commons.codec.digest.MessageDigestAlgorithms;
+import org.apereo.cas.OidcConstants;
 import org.apereo.cas.authentication.Authentication;
 import org.apereo.cas.authentication.AuthenticationHandler;
 import org.apereo.cas.authentication.principal.Principal;
@@ -44,11 +45,11 @@ public class OidcIdTokenGeneratorService {
 
     private final String issuer;
     private final int skew;
-    private final OidcTokenSigningService signingService;
+    private final OidcIdTokenSigningAndEncryptionService signingService;
 
     public OidcIdTokenGeneratorService(final String issuer,
                                        final int skew,
-                                       final OidcTokenSigningService signingService) {
+                                       final OidcIdTokenSigningAndEncryptionService signingService) {
         this.signingService = signingService;
         this.issuer = issuer;
         this.skew = skew;
@@ -84,7 +85,7 @@ public class OidcIdTokenGeneratorService {
                 oidcRegisteredService, profile.get(), context, responseType);
         LOGGER.debug("Produce claims for the id token [{}] as [{}]", accessTokenId, claims);
 
-        return this.signingService.signClaims(oidcRegisteredService, claims);
+        return this.signingService.encode(oidcRegisteredService, claims);
     }
 
     /**
