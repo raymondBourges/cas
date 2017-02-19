@@ -65,7 +65,9 @@ import org.ldaptive.handler.DnAttributeEntryHandler;
 import org.ldaptive.handler.MergeAttributeEntryHandler;
 import org.ldaptive.handler.RecursiveEntryHandler;
 import org.ldaptive.handler.SearchEntryHandler;
+import org.ldaptive.pool.BindPassivator;
 import org.ldaptive.pool.BlockingConnectionPool;
+import org.ldaptive.pool.ClosePassivator;
 import org.ldaptive.pool.CompareValidator;
 import org.ldaptive.pool.ConnectionPool;
 import org.ldaptive.pool.IdlePruneStrategy;
@@ -92,7 +94,9 @@ import org.springframework.scheduling.concurrent.ThreadPoolExecutorFactoryBean;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.security.crypto.password.StandardPasswordEncoder;
+import org.springframework.security.crypto.scrypt.SCryptPasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
@@ -277,10 +281,19 @@ public final class Beans {
                     LOGGER.debug("Creating BCRYPT encoder without secret");
                     return new BCryptPasswordEncoder(properties.getStrength());
                 }
-
                 LOGGER.debug("Creating BCRYPT encoder with secret");
                 return new BCryptPasswordEncoder(properties.getStrength(),
                         new SecureRandom(properties.getSecret().getBytes(StandardCharsets.UTF_8)));
+            case SCRYPT:
+                LOGGER.debug("Creating SCRYPT encoder");
+                return new SCryptPasswordEncoder();
+            case PBKDF2:
+                if (StringUtils.isBlank(properties.getSecret())) {
+                    LOGGER.debug("Creating PBKDF2 encoder without secret");
+                    return new Pbkdf2PasswordEncoder();
+                }
+                final int hashWidth = 256;
+                return new Pbkdf2PasswordEncoder(properties.getSecret(), properties.getStrength(), hashWidth);
             case NONE:
             default:
                 LOGGER.debug("No password encoder shall be created given the requested encoder type [{}]", type);
@@ -586,6 +599,21 @@ public final class Beans {
         }
 
         cp.setFailFastInitialize(l.isFailFast());
+
+        if (StringUtils.isNotBlank(l.getPoolPassivator())) {
+            final AbstractLdapProperties.LdapConnectionPoolPassivator pass =
+                    AbstractLdapProperties.LdapConnectionPoolPassivator.valueOf(l.getPoolPassivator().toUpperCase());
+            switch (pass) {
+                case CLOSE:
+                    cp.setPassivator(new ClosePassivator());
+                    break;
+                case BIND:
+                    cp.setPassivator(new BindPassivator());
+                    break;
+                default:
+                    break;
+            }
+        }
 
         LOGGER.debug("Initializing ldap connection pool for [{}] and bindDn [{}]", l.getLdapUrl(), l.getBindDn());
         cp.initialize();

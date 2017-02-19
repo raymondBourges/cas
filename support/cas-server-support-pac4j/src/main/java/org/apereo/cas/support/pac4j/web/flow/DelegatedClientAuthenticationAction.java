@@ -15,7 +15,6 @@ import org.pac4j.core.client.BaseClient;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.client.Clients;
 import org.pac4j.core.client.IndirectClient;
-import org.pac4j.core.context.J2EContext;
 import org.pac4j.core.context.WebContext;
 import org.pac4j.core.credentials.Credentials;
 import org.pac4j.core.exception.HttpAction;
@@ -103,7 +102,7 @@ public class DelegatedClientAuthenticationAction extends AbstractAction {
         final HttpSession session = request.getSession();
 
         // web context
-        final WebContext webContext = new J2EContext(request, response);
+        final WebContext webContext = WebUtils.getPac4jJ2EContext(request, response);
 
         // get client
         final String clientName = request.getParameter(this.clients.getClientNameParameter());
@@ -183,7 +182,7 @@ public class DelegatedClientAuthenticationAction extends AbstractAction {
         final HttpSession session = request.getSession();
 
         // web context
-        final WebContext webContext = new J2EContext(request, response);
+        final WebContext webContext = WebUtils.getPac4jJ2EContext(request, response);
 
         // save parameters in web session
         final WebApplicationService service = WebUtils.getService(context);
@@ -199,7 +198,7 @@ public class DelegatedClientAuthenticationAction extends AbstractAction {
             try {
                 final IndirectClient indirectClient = (IndirectClient) client;
 
-                final String name = StringUtils.remove(client.getName(), "Client");
+                final String name = client.getName().replaceAll("Client\\d*", "");
                 final String redirectionUrl = indirectClient.getRedirectAction(webContext).getLocation();
                 LOGGER.debug("[{}] -> [{}]", name, redirectionUrl);
                 urls.add(new ProviderLoginPageConfiguration(name, redirectionUrl, name.toLowerCase()));
