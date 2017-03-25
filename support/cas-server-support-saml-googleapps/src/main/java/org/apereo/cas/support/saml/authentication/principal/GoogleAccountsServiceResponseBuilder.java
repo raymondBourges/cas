@@ -1,6 +1,7 @@
 package org.apereo.cas.support.saml.authentication.principal;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Throwables;
 import org.apache.commons.lang3.StringUtils;
@@ -16,7 +17,6 @@ import org.apereo.cas.support.saml.SamlProtocolConstants;
 import org.apereo.cas.support.saml.util.GoogleSaml20ObjectBuilder;
 import org.apereo.cas.util.crypto.PrivateKeyFactoryBean;
 import org.apereo.cas.util.crypto.PublicKeyFactoryBean;
-import org.codehaus.jackson.annotate.JsonIgnore;
 import org.opensaml.saml.saml2.core.Assertion;
 import org.opensaml.saml.saml2.core.AuthnContext;
 import org.opensaml.saml.saml2.core.AuthnStatement;
@@ -34,6 +34,7 @@ import org.springframework.util.ResourceUtils;
 import java.io.StringWriter;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
@@ -74,6 +75,9 @@ public class GoogleAccountsServiceResponseBuilder extends AbstractWebApplication
     @JsonProperty
     private int skewAllowance;
 
+    @JsonProperty
+    private String casServerPrefix;
+    
     /**
      * Instantiates a new Google accounts service response builder.
      *
@@ -83,18 +87,21 @@ public class GoogleAccountsServiceResponseBuilder extends AbstractWebApplication
      * @param servicesManager    the services manager
      * @param samlObjectBuilder  the saml object builder
      * @param skewAllowance      the skew allowance
+     * @param casServerPrefix    the cas server prefix
      */
     public GoogleAccountsServiceResponseBuilder(final String privateKeyLocation,
                                                 final String publicKeyLocation,
                                                 final String keyAlgorithm,
                                                 final ServicesManager servicesManager,
                                                 final GoogleSaml20ObjectBuilder samlObjectBuilder,
-                                                final int skewAllowance) {
+                                                final int skewAllowance,
+                                                final String casServerPrefix) {
 
         this(privateKeyLocation, publicKeyLocation, keyAlgorithm, 0);
         this.samlObjectBuilder = samlObjectBuilder;
         this.servicesManager = servicesManager;
         this.skewAllowance = skewAllowance;
+        this.casServerPrefix = casServerPrefix;
     }
 
     /**
@@ -113,11 +120,12 @@ public class GoogleAccountsServiceResponseBuilder extends AbstractWebApplication
         Assert.notNull(privateKeyLocation);
         Assert.notNull(publicKeyLocation);
 
-        this.privateKeyLocation = privateKeyLocation;
-        this.publicKeyLocation = publicKeyLocation;
-        this.keyAlgorithm = keyAlgorithm;
-        this.skewAllowance = skewAllowance;
         try {
+            this.privateKeyLocation = privateKeyLocation;
+            this.publicKeyLocation = publicKeyLocation;
+            this.keyAlgorithm = keyAlgorithm;
+            this.skewAllowance = skewAllowance;
+
             createGoogleAppsPrivateKey();
             createGoogleAppsPublicKey();
         } catch (final Exception e) {
@@ -153,17 +161,15 @@ public class GoogleAccountsServiceResponseBuilder extends AbstractWebApplication
         if (registeredService == null || !registeredService.getAccessStrategy().isServiceAccessAllowed()) {
             throw new UnauthorizedServiceException(UnauthorizedServiceException.CODE_UNAUTHZ_SERVICE);
         }
-        final String userId = registeredService.getUsernameAttributeProvider()
-                .resolveUsername(service.getPrincipal(), service);
+        final String userId = registeredService.getUsernameAttributeProvider().resolveUsername(service.getPrincipal(), service);
 
         final org.opensaml.saml.saml2.core.Response response = this.samlObjectBuilder.newResponse(
                 this.samlObjectBuilder.generateSecureRandomId(), currentDateTime, service.getId(), service);
         response.setStatus(this.samlObjectBuilder.newStatus(StatusCode.SUCCESS, null));
 
-        final AuthnStatement authnStatement = this.samlObjectBuilder.newAuthnStatement(
-                AuthnContext.PASSWORD_AUTHN_CTX, currentDateTime);
-        final Assertion assertion = this.samlObjectBuilder.newAssertion(authnStatement,
-                "https://www.opensaml.org/IDP",
+        final String sessionIndex = '_' + String.valueOf(Math.abs(new SecureRandom().nextLong()));
+        final AuthnStatement authnStatement = this.samlObjectBuilder.newAuthnStatement(AuthnContext.PASSWORD_AUTHN_CTX, currentDateTime, sessionIndex);
+        final Assertion assertion = this.samlObjectBuilder.newAssertion(authnStatement, casServerPrefix,
                 notBeforeIssueInstant, this.samlObjectBuilder.generateSecureRandomId());
 
         final Conditions conditions = this.samlObjectBuilder.newConditions(notBeforeIssueInstant,
@@ -223,7 +229,7 @@ public class GoogleAccountsServiceResponseBuilder extends AbstractWebApplication
         LOGGER.debug("Loading Google Apps private key from [{}] with key algorithm [{}]",
                 bean.getLocation(), bean.getAlgorithm());
         bean.afterPropertiesSet();
-        LOGGER.debug("Creating Google Apps private key instance via [{}]", this.publicKeyLocation);
+        LOGGER.debug("Creating Google Apps private key instance via [{}]", this.privateKeyLocation);
         this.privateKey = bean.getObject();
     }
 

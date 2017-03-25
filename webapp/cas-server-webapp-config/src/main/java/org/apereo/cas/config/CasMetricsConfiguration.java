@@ -8,7 +8,6 @@ import com.codahale.metrics.jvm.FileDescriptorRatioGauge;
 import com.codahale.metrics.jvm.GarbageCollectorMetricSet;
 import com.codahale.metrics.jvm.MemoryUsageGaugeSet;
 import com.codahale.metrics.jvm.ThreadStatesGaugeSet;
-import com.codahale.metrics.servlets.MetricsServlet;
 import com.ryantenney.metrics.spring.config.annotation.EnableMetrics;
 import com.ryantenney.metrics.spring.config.annotation.MetricsConfigurerAdapter;
 import org.apereo.cas.configuration.CasConfigurationProperties;
@@ -16,12 +15,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -54,18 +51,7 @@ public class CasMetricsConfiguration extends MetricsConfigurerAdapter {
         metrics.register("jvm.fd.usage", new FileDescriptorRatioGauge());
         return metrics;
     }
-
-    @Bean
-    public ServletRegistrationBean metricsServlet() {
-        final ServletRegistrationBean bean = new ServletRegistrationBean();
-        bean.setEnabled(true);
-        bean.setName("metricsServlet");
-        bean.setServlet(new MetricsServlet());
-        bean.setUrlMappings(Collections.singleton("/status/metrics"));
-        bean.setLoadOnStartup(1);
-        return bean;
-    }
-
+    
     @Bean
     public HealthCheckRegistry healthCheckMetrics() {
         return new HealthCheckRegistry();

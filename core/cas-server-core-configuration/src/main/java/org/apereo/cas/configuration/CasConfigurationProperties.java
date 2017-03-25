@@ -55,7 +55,7 @@ public class CasConfigurationProperties {
 
     @NestedConfigurationProperty
     private ScimProperties scim = new ScimProperties();
-    
+
     @NestedConfigurationProperty
     private AuthenticationProperties authn = new AuthenticationProperties();
 

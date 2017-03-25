@@ -33,6 +33,7 @@ import org.apereo.services.persondir.IPersonAttributeDao;
 import org.apereo.services.persondir.support.NamedStubPersonAttributeDao;
 import org.ldaptive.ActivePassiveConnectionStrategy;
 import org.ldaptive.BindConnectionInitializer;
+import org.ldaptive.BindRequest;
 import org.ldaptive.CompareRequest;
 import org.ldaptive.ConnectionConfig;
 import org.ldaptive.Credential;
@@ -108,11 +109,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * A re-usable collection of utility methods for object instantiations and configurations used cross various
- * <code>@Bean</code> creation methods throughout CAS server.
+ * {@code @Bean} creation methods throughout CAS server.
  *
  * @author Dmitriy Kopylenko
  * @since 5.0.0
@@ -143,10 +147,10 @@ public final class Beans {
             bean.setPassword(jpaProperties.getPassword());
 
             bean.setMaximumPoolSize(jpaProperties.getPool().getMaxSize());
-            bean.setMinimumIdle(Long.valueOf(jpaProperties.getPool().getMaxIdleTime()).intValue());
+            bean.setMinimumIdle(jpaProperties.getPool().getMinSize());
             bean.setIdleTimeout(jpaProperties.getIdleTimeout());
             bean.setLeakDetectionThreshold(jpaProperties.getLeakThreshold());
-            bean.setInitializationFailFast(jpaProperties.isFailFast());
+            bean.setInitializationFailTimeout(jpaProperties.isFailFast() ? 1 : 0);
             bean.setIsolateInternalQueries(jpaProperties.isIsolateInternalQueries());
             bean.setConnectionTestQuery(jpaProperties.getHealthQuery());
             bean.setAllowPoolSuspension(jpaProperties.getPool().isSuspension());
@@ -199,7 +203,7 @@ public final class Beans {
 
         bean.setJpaVendorAdapter(config.getJpaVendorAdapter());
 
-        if (StringUtils.isNotEmpty(config.getPersistenceUnitName())) {
+        if (StringUtils.isNotBlank(config.getPersistenceUnitName())) {
             bean.setPersistenceUnitName(config.getPersistenceUnitName());
         }
         bean.setPackagesToScan(config.getPackagesToScan());
@@ -229,7 +233,7 @@ public final class Beans {
         try {
             final NamedStubPersonAttributeDao dao = new NamedStubPersonAttributeDao();
             final Map<String, List<Object>> pdirMap = new HashMap<>();
-            p.getAttributes().entrySet().forEach(entry -> {
+            p.getStub().getAttributes().entrySet().forEach(entry -> {
                 final String[] vals = org.springframework.util.StringUtils.commaDelimitedListToStringArray(entry.getValue());
                 pdirMap.put(entry.getKey(), Arrays.asList((Object[]) vals));
             });
@@ -414,6 +418,36 @@ public final class Beans {
 
 
     /**
+     * Transform principal attributes into map.
+     * Items in the list are defined in the syntax of "cn", or "cn:commonName" for virtual renaming and maps.
+     *
+     * @param list the list
+     * @return the map
+     */
+    public static Map<String, String> transformPrincipalAttributesListIntoMap(final List<String> list) {
+        final Map<String, String> attributes = new HashMap<>();
+
+        if (list.isEmpty()) {
+            LOGGER.debug("No principal attributes are defined");
+        } else {
+            list.forEach(a -> {
+                final String attributeName = a.trim();
+                if (attributeName.contains(":")) {
+                    final String[] attrCombo = attributeName.split(":");
+                    final String name = attrCombo[0].trim();
+                    final String value = attrCombo[1].trim();
+                    LOGGER.debug("Mapped principal attribute name [{}] to [{}]", name, value);
+                    attributes.put(name, value);
+                } else {
+                    LOGGER.debug("Mapped principal attribute name [{}]", attributeName);
+                    attributes.put(attributeName, attributeName);
+                }
+            });
+        }
+        return attributes;
+    }
+
+    /**
      * New connection config connection config.
      *
      * @param l the ldap properties
@@ -427,7 +461,9 @@ public final class Beans {
         LOGGER.debug("Creating LDAP connection configuration for [{}]", l.getLdapUrl());
         final ConnectionConfig cc = new ConnectionConfig();
 
-        final String urls = Arrays.stream(l.getLdapUrl().split(",")).collect(Collectors.joining(" "));
+        final String urls = l.getLdapUrl().contains(" ")
+                ? l.getLdapUrl()
+                : Arrays.stream(l.getLdapUrl().split(",")).collect(Collectors.joining(" "));
         LOGGER.debug("Transformed LDAP urls from [{}] to [{}]", l.getLdapUrl(), urls);
         cc.setLdapUrl(urls);
 
@@ -473,7 +509,7 @@ public final class Beans {
             cfg.setKeyStoreType(l.getKeystoreType());
             cc.setSslConfig(new SslConfig(cfg));
         } else {
-            LOGGER.debug("Creating LDAP SSL configuration via the native JVM truststore [{}]");
+            LOGGER.debug("Creating LDAP SSL configuration via the native JVM truststore");
             cc.setSslConfig(new SslConfig());
         }
         if (l.getSaslMechanism() != null) {
@@ -529,6 +565,7 @@ public final class Beans {
         pc.setValidateOnCheckOut(l.isValidateOnCheckout());
         pc.setValidatePeriodically(l.isValidatePeriodically());
         pc.setValidatePeriod(newDuration(l.getValidatePeriod()));
+        pc.setValidateTimeout(newDuration(l.getValidateTimeout()));
         return pc;
     }
 
@@ -606,9 +643,19 @@ public final class Beans {
             switch (pass) {
                 case CLOSE:
                     cp.setPassivator(new ClosePassivator());
+                    LOGGER.debug("Created [{}] passivator for [{}]", l.getPoolPassivator(), l.getLdapUrl());
                     break;
                 case BIND:
-                    cp.setPassivator(new BindPassivator());
+                    if (StringUtils.isNotBlank(l.getBindDn()) && StringUtils.isNoneBlank(l.getBindCredential())) {
+                        final BindRequest bindRequest = new BindRequest();
+                        bindRequest.setDn(l.getBindDn());
+                        bindRequest.setCredential(new Credential(l.getBindCredential()));
+                        cp.setPassivator(new BindPassivator(bindRequest));
+                        LOGGER.debug("Created [{}] passivator for [{}]", l.getPoolPassivator(), l.getLdapUrl());
+                    } else {
+                        LOGGER.warn("No [{}] passivator could be created for [{}] given bind credentials are not specified",
+                                l.getPoolPassivator(), l.getLdapUrl());
+                    }
                     break;
                 default:
                     break;
@@ -618,6 +665,26 @@ public final class Beans {
         LOGGER.debug("Initializing ldap connection pool for [{}] and bindDn [{}]", l.getLdapUrl(), l.getBindDn());
         cp.initialize();
         return cp;
+    }
+
+
+    /**
+     * Gets credential selection predicate.
+     *
+     * @param selectionCriteria the selection criteria
+     * @return the credential selection predicate
+     */
+    public static Predicate<org.apereo.cas.authentication.Credential> newCredentialSelectionPredicate(final String selectionCriteria) {
+        try {
+            if (StringUtils.isBlank(selectionCriteria)) {
+                return credential -> true;
+            }
+            final Class predicateClazz = ClassUtils.getClass(selectionCriteria);
+            return (Predicate<org.apereo.cas.authentication.Credential>) predicateClazz.newInstance();
+        } catch (final Exception e) {
+            final Predicate<String> predicate = Pattern.compile(selectionCriteria).asPredicate();
+            return credential -> predicate.test(credential.getId());
+        }
     }
 
     /**
@@ -678,8 +745,7 @@ public final class Beans {
                     registry.getSigning().getKeySize(),
                     registry.getEncryption().getKeySize());
         }
-        LOGGER.debug("Ticket registry encryption/signing is turned off. This MAY NOT be safe in a "
-                + "clustered production environment. "
+        LOGGER.debug("Ticket registry encryption/signing is turned off. This MAY NOT be safe in a clustered production environment. "
                 + "Consider using other choices to handle encryption, signing and verification of "
                 + "ticket registry tickets, and verify the chosen ticket registry does support this behavior.");
         return NoOpCipherExecutor.getInstance();
@@ -688,16 +754,34 @@ public final class Beans {
     /**
      * Builds a new request.
      *
+     * @param baseDn           the base dn
+     * @param filter           the filter
+     * @param binaryAttributes the binary attributes
+     * @param returnAttributes the return attributes
+     * @return the search request
+     */
+    public static SearchRequest newLdaptiveSearchRequest(final String baseDn,
+                                                         final SearchFilter filter,
+                                                         final String[] binaryAttributes,
+                                                         final String[] returnAttributes) {
+        final SearchRequest sr = new SearchRequest(baseDn, filter);
+        sr.setBinaryAttributes(binaryAttributes);
+        sr.setReturnAttributes(returnAttributes);
+        sr.setSearchScope(SearchScope.SUBTREE);
+        return sr;
+    }
+
+    /**
+     * New ldaptive search request.
+     * Returns all attributes.
+     *
      * @param baseDn the base dn
      * @param filter the filter
      * @return the search request
      */
-    public static SearchRequest newLdaptiveSearchRequest(final String baseDn, final SearchFilter filter) {
-        final SearchRequest sr = new SearchRequest(baseDn, filter);
-        sr.setBinaryAttributes(ReturnAttributes.ALL_USER.value());
-        sr.setReturnAttributes(ReturnAttributes.ALL_USER.value());
-        sr.setSearchScope(SearchScope.SUBTREE);
-        return sr;
+    public static SearchRequest newLdaptiveSearchRequest(final String baseDn,
+                                                         final SearchFilter filter) {
+        return newLdaptiveSearchRequest(baseDn, filter, ReturnAttributes.ALL_USER.value(), ReturnAttributes.ALL_USER.value());
     }
 
     /**
@@ -736,13 +820,13 @@ public final class Beans {
         final SearchFilter filter = new SearchFilter();
         filter.setFilter(filterQuery);
         if (params != null) {
-            for (int i = 0; i < params.size(); i++) {
+            IntStream.range(0, params.size()).forEach(i -> {
                 if (filter.getFilter().contains("{" + i + '}')) {
                     filter.setParameter(i, params.get(i));
                 } else {
                     filter.setParameter(paramName, params.get(i));
                 }
-            }
+            });
         }
         LOGGER.debug("Constructed LDAP search filter [{}]", filter.format());
         return filter;
@@ -870,40 +954,20 @@ public final class Beans {
      * @return the authenticator
      */
     public static Authenticator newLdaptiveAuthenticator(final AbstractLdapAuthenticationProperties l) {
-        if (l.getType() == AbstractLdapAuthenticationProperties.AuthenticationTypes.AD) {
-            LOGGER.debug("Creating active directory authenticator for [{}]", l.getLdapUrl());
-            return getActiveDirectoryAuthenticator(l);
+        switch (l.getType()) {
+            case AD:
+                LOGGER.debug("Creating active directory authenticator for [{}]", l.getLdapUrl());
+                return getActiveDirectoryAuthenticator(l);
+            case DIRECT:
+                LOGGER.debug("Creating direct-bind authenticator for [{}]", l.getLdapUrl());
+                return getDirectBindAuthenticator(l);
+            case AUTHENTICATED:
+                LOGGER.debug("Creating authenticated authenticator for [{}]", l.getLdapUrl());
+                return getAuthenticatedOrAnonSearchAuthenticator(l);
+            default:
+                LOGGER.debug("Creating anonymous authenticator for [{}]", l.getLdapUrl());
+                return getAuthenticatedOrAnonSearchAuthenticator(l);
         }
-        if (l.getType() == AbstractLdapAuthenticationProperties.AuthenticationTypes.DIRECT) {
-            LOGGER.debug("Creating direct-bind authenticator for [{}]", l.getLdapUrl());
-            return getDirectBindAuthenticator(l);
-        }
-        if (l.getType() == AbstractLdapAuthenticationProperties.AuthenticationTypes.SASL) {
-            LOGGER.debug("Creating SASL authenticator for [{}]", l.getLdapUrl());
-            return getSaslAuthenticator(l);
-        }
-        if (l.getType() == AbstractLdapAuthenticationProperties.AuthenticationTypes.AUTHENTICATED) {
-            LOGGER.debug("Creating authenticated authenticator for [{}]", l.getLdapUrl());
-            return getAuthenticatedOrAnonSearchAuthenticator(l);
-        }
-
-        LOGGER.debug("Creating anonymous authenticator for [{}]", l.getLdapUrl());
-        return getAuthenticatedOrAnonSearchAuthenticator(l);
-    }
-
-    private static Authenticator getSaslAuthenticator(final AbstractLdapAuthenticationProperties l) {
-        if (StringUtils.isBlank(l.getUserFilter())) {
-            throw new IllegalArgumentException("User filter cannot be empty/blank for authenticated/anonymous authentication");
-        }
-
-        final PooledConnectionFactory factory = Beans.newLdaptivePooledConnectionFactory(l);
-        final PooledSearchDnResolver resolver = new PooledSearchDnResolver();
-        resolver.setBaseDn(l.getBaseDn());
-        resolver.setSubtreeSearch(l.isSubtreeSearch());
-        resolver.setAllowMultipleDns(l.isAllowMultipleDns());
-        resolver.setConnectionFactory(factory);
-        resolver.setUserFilter(l.getUserFilter());
-        return new Authenticator(resolver, getPooledBindAuthenticationHandler(l, factory));
     }
 
     private static Authenticator getAuthenticatedOrAnonSearchAuthenticator(final AbstractLdapAuthenticationProperties l) {
@@ -913,23 +977,23 @@ public final class Beans {
         if (StringUtils.isBlank(l.getUserFilter())) {
             throw new IllegalArgumentException("User filter cannot be empty/blank for authenticated/anonymous authentication");
         }
-        final PooledConnectionFactory factory = Beans.newLdaptivePooledConnectionFactory(l);
+        final PooledConnectionFactory connectionFactoryForSearch = Beans.newLdaptivePooledConnectionFactory(l);
         final PooledSearchDnResolver resolver = new PooledSearchDnResolver();
         resolver.setBaseDn(l.getBaseDn());
         resolver.setSubtreeSearch(l.isSubtreeSearch());
         resolver.setAllowMultipleDns(l.isAllowMultipleDns());
-        resolver.setConnectionFactory(Beans.newLdaptivePooledConnectionFactory(l));
+        resolver.setConnectionFactory(connectionFactoryForSearch);
         resolver.setUserFilter(l.getUserFilter());
 
         final Authenticator auth;
         if (StringUtils.isBlank(l.getPrincipalAttributePassword())) {
-            auth = new Authenticator(resolver, getPooledBindAuthenticationHandler(l, factory));
+            auth = new Authenticator(resolver, getPooledBindAuthenticationHandler(l, Beans.newLdaptivePooledConnectionFactory(l)));
         } else {
-            auth = new Authenticator(resolver, getPooledCompareAuthenticationHandler(l, factory));
+            auth = new Authenticator(resolver, getPooledCompareAuthenticationHandler(l, Beans.newLdaptivePooledConnectionFactory(l)));
         }
 
         if (l.isEnhanceWithEntryResolver()) {
-            auth.setEntryResolver(Beans.newLdaptiveSearchEntryResolver(l, factory));
+            auth.setEntryResolver(Beans.newLdaptiveSearchEntryResolver(l, Beans.newLdaptivePooledConnectionFactory(l)));
         }
         return auth;
     }
@@ -938,12 +1002,11 @@ public final class Beans {
         if (StringUtils.isBlank(l.getDnFormat())) {
             throw new IllegalArgumentException("Dn format cannot be empty/blank for direct bind authentication");
         }
-        final PooledConnectionFactory factory = Beans.newLdaptivePooledConnectionFactory(l);
         final FormatDnResolver resolver = new FormatDnResolver(l.getDnFormat());
-        final Authenticator authenticator = new Authenticator(resolver, getPooledBindAuthenticationHandler(l, factory));
+        final Authenticator authenticator = new Authenticator(resolver, getPooledBindAuthenticationHandler(l, Beans.newLdaptivePooledConnectionFactory(l)));
 
         if (l.isEnhanceWithEntryResolver()) {
-            authenticator.setEntryResolver(Beans.newLdaptiveSearchEntryResolver(l, factory));
+            authenticator.setEntryResolver(Beans.newLdaptiveSearchEntryResolver(l, Beans.newLdaptivePooledConnectionFactory(l)));
         }
         return authenticator;
     }
@@ -952,12 +1015,11 @@ public final class Beans {
         if (StringUtils.isBlank(l.getDnFormat())) {
             throw new IllegalArgumentException("Dn format cannot be empty/blank for active directory authentication");
         }
-        final PooledConnectionFactory factory = Beans.newLdaptivePooledConnectionFactory(l);
         final FormatDnResolver resolver = new FormatDnResolver(l.getDnFormat());
-        final Authenticator authn = new Authenticator(resolver, getPooledBindAuthenticationHandler(l, factory));
+        final Authenticator authn = new Authenticator(resolver, getPooledBindAuthenticationHandler(l, Beans.newLdaptivePooledConnectionFactory(l)));
 
         if (l.isEnhanceWithEntryResolver()) {
-            authn.setEntryResolver(Beans.newLdaptiveSearchEntryResolver(l, factory));
+            authn.setEntryResolver(Beans.newLdaptiveSearchEntryResolver(l, Beans.newLdaptivePooledConnectionFactory(l)));
         }
         return authn;
     }

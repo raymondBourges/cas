@@ -7,7 +7,9 @@ import org.apereo.cas.support.saml.OpenSamlConfigBean;
 import org.apereo.cas.util.CompressionUtils;
 import org.apereo.cas.util.DateTimeUtils;
 import org.apereo.cas.util.EncodingUtils;
+import org.opensaml.core.xml.XMLObject;
 import org.opensaml.saml.common.SAMLVersion;
+import org.opensaml.saml.saml2.core.AttributeValue;
 import org.opensaml.saml.saml2.core.Assertion;
 import org.opensaml.saml.saml2.core.Attribute;
 import org.opensaml.saml.saml2.core.AttributeStatement;
@@ -37,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 /**
  * This is {@link AbstractSaml20ObjectBuilder}.
@@ -99,8 +102,12 @@ public abstract class AbstractSaml20ObjectBuilder extends AbstractSamlObjectBuil
         samlResponse.setID(id);
         samlResponse.setIssueInstant(DateTimeUtils.dateTimeOf(issueInstant));
         samlResponse.setVersion(SAMLVersion.VERSION_20);
-        samlResponse.setInResponseTo(recipient);
-        setInResponseToForSamlResponseIfNeeded(service, samlResponse);
+        if (StringUtils.isNotBlank(recipient)) {
+            LOGGER.debug("Setting provided RequestId {} as InResponseTo", recipient);
+            samlResponse.setInResponseTo(recipient);
+        } else {
+            LOGGER.debug("No RequestId is provided. Skipping InResponseTo");
+        }
         return samlResponse;
     }
 
@@ -196,6 +203,19 @@ public abstract class AbstractSaml20ObjectBuilder extends AbstractSamlObjectBuil
     }
 
     /**
+     * Add saml2 attribute values for attribute.
+     *
+     * @param attributeName  the attribute name
+     * @param attributeValue the attribute value
+     * @param attributeList  the attribute list
+     */
+    public void addAttributeValuesToSaml2Attribute(final String attributeName,
+                                                   final Object attributeValue,
+                                                   final List<XMLObject> attributeList) {
+        addAttributeValuesToSamlAttribute(attributeName, attributeValue, attributeList, AttributeValue.DEFAULT_ELEMENT_NAME);
+    }
+
+    /**
      * New attribute.
      *
      * @param setFriendlyName       the set friendly name
@@ -213,7 +233,7 @@ public abstract class AbstractSaml20ObjectBuilder extends AbstractSamlObjectBuil
         if (setFriendlyName) {
             attribute.setFriendlyName(e.getKey());
         }
-        addAttributeValuesToSamlAttribute(e.getKey(), e.getValue(), attribute.getAttributeValues());
+        addAttributeValuesToSaml2Attribute(e.getKey(), e.getValue(), attribute.getAttributeValues());
 
         if (!configuredNameFormats.isEmpty() && configuredNameFormats.containsKey(attribute.getName())) {
             final String nameFormat = configuredNameFormats.get(attribute.getName());
@@ -246,9 +266,11 @@ public abstract class AbstractSaml20ObjectBuilder extends AbstractSamlObjectBuil
      *
      * @param contextClassRef the context class ref such as {@link AuthnContext#PASSWORD_AUTHN_CTX}
      * @param authnInstant    the authn instant
+     * @param sessionIndex    the session index
      * @return the authn statement
      */
-    public AuthnStatement newAuthnStatement(final String contextClassRef, final ZonedDateTime authnInstant) {
+    public AuthnStatement newAuthnStatement(final String contextClassRef, final ZonedDateTime authnInstant,
+                                            final String sessionIndex) {
         final AuthnStatement stmt = newSamlObject(AuthnStatement.class);
         final AuthnContext ctx = newSamlObject(AuthnContext.class);
 
@@ -258,7 +280,7 @@ public abstract class AbstractSaml20ObjectBuilder extends AbstractSamlObjectBuil
         ctx.setAuthnContextClassRef(classRef);
         stmt.setAuthnContext(ctx);
         stmt.setAuthnInstant(DateTimeUtils.dateTimeOf(authnInstant));
-
+        stmt.setSessionIndex(sessionIndex);
         return stmt;
     }
 
@@ -330,12 +352,12 @@ public abstract class AbstractSaml20ObjectBuilder extends AbstractSamlObjectBuil
         generator.nextBytes(bytes);
 
         final char[] chars = new char[charsLength];
-        for (int i = 0; i < bytes.length; i++) {
+        IntStream.range(0, bytes.length).forEach(i -> {
             final int left = bytes[i] >> shiftLength & HEX_HIGH_BITS_BITWISE_FLAG;
             final int right = bytes[i] & HEX_HIGH_BITS_BITWISE_FLAG;
             chars[i * 2] = charMappings[left];
             chars[i * 2 + 1] = charMappings[right];
-        }
+        });
         return String.valueOf(chars);
     }
 

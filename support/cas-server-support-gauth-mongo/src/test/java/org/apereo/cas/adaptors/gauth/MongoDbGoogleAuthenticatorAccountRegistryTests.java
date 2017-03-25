@@ -5,12 +5,15 @@ import org.apereo.cas.config.CasCoreAuthenticationHandlersConfiguration;
 import org.apereo.cas.config.CasCoreAuthenticationMetadataConfiguration;
 import org.apereo.cas.config.CasCoreAuthenticationPolicyConfiguration;
 import org.apereo.cas.config.CasCoreAuthenticationPrincipalConfiguration;
+import org.apereo.cas.config.CasCoreAuthenticationServiceSelectionStrategyConfiguration;
 import org.apereo.cas.config.CasCoreAuthenticationSupportConfiguration;
+import org.apereo.cas.config.CasCoreConfiguration;
 import org.apereo.cas.config.CasCoreHttpConfiguration;
 import org.apereo.cas.config.CasCoreServicesConfiguration;
 import org.apereo.cas.config.CasCoreTicketsConfiguration;
 import org.apereo.cas.config.CasCoreUtilConfiguration;
 import org.apereo.cas.config.CasPersonDirectoryConfiguration;
+import org.apereo.cas.config.CasCoreTicketCatalogConfiguration;
 import org.apereo.cas.config.GoogleAuthentiacatorMongoDbConfiguration;
 import org.apereo.cas.config.support.CasWebApplicationServiceFactoryConfiguration;
 import org.apereo.cas.config.support.authentication.GoogleAuthenticatorAuthenticationEventExecutionPlanConfiguration;
@@ -43,6 +46,7 @@ import static org.junit.Assert.*;
 @SpringBootTest(
         classes = {GoogleAuthentiacatorMongoDbConfiguration.class,
                 CasCoreTicketsConfiguration.class,
+                CasCoreTicketCatalogConfiguration.class,
                 CasCoreLogoutConfiguration.class,
                 CasCoreHttpConfiguration.class,
                 CasCoreServicesConfiguration.class,
@@ -56,6 +60,8 @@ import static org.junit.Assert.*;
                 CasPersonDirectoryConfiguration.class,
                 GoogleAuthenticatorAuthenticationEventExecutionPlanConfiguration.class,
                 AopAutoConfiguration.class,
+                CasCoreConfiguration.class,
+                CasCoreAuthenticationServiceSelectionStrategyConfiguration.class,
                 CasCoreUtilConfiguration.class,
                 RefreshAutoConfiguration.class})
 @EnableTransactionManagement(proxyTargetClass = true)

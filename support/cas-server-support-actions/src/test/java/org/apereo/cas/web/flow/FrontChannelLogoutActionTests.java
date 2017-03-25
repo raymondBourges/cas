@@ -1,5 +1,7 @@
 package org.apereo.cas.web.flow;
 
+import org.apereo.cas.authentication.DefaultAuthenticationServiceSelectionPlan;
+import org.apereo.cas.authentication.DefaultAuthenticationServiceSelectionStrategy;
 import org.apereo.cas.logout.DefaultSingleLogoutServiceLogoutUrlBuilder;
 import org.apereo.cas.logout.DefaultSingleLogoutServiceMessageHandler;
 import org.apereo.cas.logout.LogoutManagerImpl;
@@ -46,7 +48,8 @@ public class FrontChannelLogoutActionTests {
     @Before
     public void onSetUp() throws Exception {
         final DefaultSingleLogoutServiceMessageHandler handler = new DefaultSingleLogoutServiceMessageHandler(new SimpleHttpClientFactoryBean().getObject(),
-                new SamlCompliantLogoutMessageCreator(), servicesManager, new DefaultSingleLogoutServiceLogoutUrlBuilder(), false);
+                new SamlCompliantLogoutMessageCreator(), servicesManager, new DefaultSingleLogoutServiceLogoutUrlBuilder(), false,
+                new DefaultAuthenticationServiceSelectionPlan(new DefaultAuthenticationServiceSelectionStrategy()));
         final LogoutManagerImpl logoutManager = new LogoutManagerImpl(new SamlCompliantLogoutMessageCreator(), handler, false);
 
         this.frontChannelLogoutAction = new FrontChannelLogoutAction(logoutManager);

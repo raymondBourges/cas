@@ -5,6 +5,8 @@ import org.apereo.cas.authentication.HandlerResult;
 import org.apereo.cas.authentication.PreventedException;
 import org.apereo.cas.authentication.handler.support.AbstractPac4jAuthenticationHandler;
 import org.apereo.cas.authentication.principal.ClientCredential;
+import org.apereo.cas.authentication.principal.PrincipalFactory;
+import org.apereo.cas.services.ServicesManager;
 import org.apereo.cas.web.support.WebUtils;
 import org.pac4j.core.context.WebContext;
 import org.pac4j.core.credentials.Credentials;
@@ -17,7 +19,6 @@ import org.pac4j.core.util.InitializableObject;
 import org.pac4j.core.util.InitializableWebObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 import javax.security.auth.login.FailedLoginException;
 import java.security.GeneralSecurityException;
@@ -39,6 +40,11 @@ public abstract class AbstractWrapperAuthenticationHandler<I extends Credential,
      * The pac4j profile creator used for authentication.
      */
     protected ProfileCreator profileCreator = AuthenticatorProfileCreator.INSTANCE;
+
+    public AbstractWrapperAuthenticationHandler(final String name, final ServicesManager servicesManager, final PrincipalFactory principalFactory,
+                                                final Integer order) {
+        super(name, servicesManager, principalFactory, order);
+    }
 
     @Override
     public boolean supports(final Credential credential) {
